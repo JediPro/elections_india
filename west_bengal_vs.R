@@ -33,7 +33,8 @@ data_wb_ac_elections <- table_ac_elections %>%
          MyNeta_education, TCPD_Prof_Main, Turncoat) %>% 
   rename_with(.fn = snakecase::to_snake_case, .cols = everything()) %>% 
   # Rename manually
-  rename(candidate_id = pid) %>% 
+  rename(candidate_id = pid, education = my_neta_education, 
+         profession = tcpd_prof_main) %>% 
   # Process columns
   mutate(enop = replace_na(data = enop, replace = 1),
          # Recode NOTA
@@ -47,13 +48,13 @@ data_wb_ac_elections <- table_ac_elections %>%
                                       constituency_type == "SC" ~ "SC",
                                     candidate_type == "GENERAL" ~ "GEN",
                                     TRUE ~ candidate_type),
+         candidate_id = case_when(candidate == "NOTA" ~ "NOTA", 
+                                  TRUE ~ candidate_id),
          sex = case_when(candidate == "NOTA" ~ "N",
                          sex == "MALE" ~ "M", TRUE ~ sex)
          ) %>% 
   # Replace missing values with Mode for select columns
   group_by(party) %>% 
-  mutate(party_id = case_when(is.na(party_id) ~ DescTools::Mode(party_id, na.rm = TRUE), TRUE ~ party_id)) %>% 
+  mutate(party_id = case_when(is.na(party_id) ~ median(party_id, na.rm = TRUE), TRUE ~ party_id)) %>% 
   ungroup()
 
-fgh <- data_wb_ac_elections %>% count(sex)
-fgh <- data_wb_ac_elections %>% filter(is.na(sex)) %>% count(party_id, party, candidate_id, candidate)
