@@ -3,9 +3,13 @@
 # Load libraries -------------------------------------
 library(tidyverse)
 library(sf)
+library(ggfittext)
 
 # Set working directory ------------------------------
 setwd("C:\\Stuff\\Datasets\\GitHub\\elections_india\\")
+
+# Load themes script
+source(file = "C:\\Stuff\\Datasets\\vaw_themes.R")
 
 # Load data ------------------------------------
 # Fetch Assemble constituency shapefile for WB
@@ -62,7 +66,8 @@ data_wb_ac_elections <- table_ac_elections %>%
          ) %>% 
   # Replace missing values with Mode for select columns
   group_by(party) %>% 
-  mutate(party_id = case_when(is.na(party_id) ~ median(party_id, na.rm = TRUE), TRUE ~ party_id)) %>% 
+  mutate(party_id = case_when(is.na(party_id) ~ median(party_id, na.rm = TRUE), 
+                              TRUE ~ party_id)) %>% 
   ungroup()
 
 # Process data for voter list
@@ -73,4 +78,60 @@ data_ac_voter <- table_ac_voter %>%
   
 # Process turnout data
 data_ac_turnout <- table_ac_turnout %>% 
-  left_join(y = data_ac_voter)
+  mutate(constituency = toupper(constituency)) %>% 
+  # Recode names
+  mutate(constituency = replace_values(x = constituency,
+                                   "BAISHNABNAGAR" ~ "BAISHNAB NAGAR",
+                                   "BHAGAWANGOLA" ~ "BHAGABANGOLA",
+                                   "DABGRAM-FULBARI" ~ "DABGRAM-PHULBARI",
+                                   "INDAS" ~ "INDUS",
+                                   "KOTULPUR" ~ "KATULPUR",
+                                   "LABPUR" ~ "LABHPUR",
+                                   "NOWDA" ~ "NAODA",
+                                   "RANIBANDH" ~ "RANIBUNDH")) %>% 
+  # Get constituency number
+  left_join(y = data_wb_ac_elections %>% filter(year == 2021) %>%
+              distinct(ac_no, ac_name), by = c("constituency" = "ac_name"))
+
+# Election wise eligible voters and votes polled -----------------------
+data_wb_ac_elections %>% 
+  group_by(assembly_no, ac_no) %>% 
+  summarise(electors = max(electors), votes = max(valid_votes), 
+            .groups = "drop") %>% 
+  # Yearly counts
+  group_by(assembly_no) %>% 
+  summarise(across(.cols = c(electors, votes), .fns = sum)) %>% 
+  mutate(turnout = votes/electors) %>% 
+  pivot_longer(cols = c(electors, votes), 
+               names_to = "metric", values_to = "value") %>% 
+  # plot
+  ggplot() +
+  # Column chart for total and actual
+  geom_col(mapping = aes(x = assembly_no, y = value, 
+                         group = metric, fill = metric), position = "identity",
+           colour = "white", linewidth = 2) +
+  
+
+# Mosaic plot showing eligible voters, turnout, top party shares --------------
+plot_mosaic_election_turnouts <- data_wb_ac_elections %>% 
+  # Total votes polled
+  group_by(year, party) %>% 
+  summarise(votes = sum(votes), .groups = "drop") %>% 
+  # Keep top three parties and group the rest
+  group_by(year) %>% 
+  mutate(votes_polled = sum(votes),
+         vote_share = votes/votes_polled,
+         # Do not consider Independents and NOTA when finding top parties
+         party_rank = row_number(desc(
+           case_when(party %notin% c("IND", "NOTA") ~ votes, 
+                     TRUE ~ NA_integer_))),
+         # Recode parties not in top 3
+         party = case_when(party_rank > 2 | is.na(party_rank) ~ "OTH", 
+                           TRUE ~ party)) %>% 
+  group_by(year, party) %>% 
+  summarise(votes = sum(votes), votes_polled = max(votes_polled), 
+            vote_share = sum(vote_share), 
+            party_rank = min(party_rank, na.rm = TRUE),
+            .groups = "drop") %>% 
+  ungroup() %>% 
+  arrange(year, party_rank)
