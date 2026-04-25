@@ -4,6 +4,7 @@
 library(tidyverse)
 library(sf)
 library(ggfittext)
+library(ggalluvial)
 
 # Set working directory ------------------------------
 setwd("C:\\Stuff\\Datasets\\GitHub\\elections_india\\")
@@ -97,7 +98,7 @@ data_ac_turnout <- table_ac_turnout %>%
 vec_assembly_year <- data_wb_ac_elections %>% distinct(assembly_no, year) %>% deframe()
 
 # Election wise eligible voters and votes polled -----------------------
-data_wb_ac_elections %>% 
+plot_election_turnout_trend <- data_wb_ac_elections %>% 
   group_by(assembly_no, ac_no) %>% 
   summarise(electors = max(electors), votes = max(valid_votes), 
             .groups = "drop") %>% 
@@ -118,7 +119,7 @@ data_wb_ac_elections %>%
   geom_text(data = . %>% filter(metric == "votes"), 
             mapping = aes(x = assembly_no, y = value, 
                           label = scales::percent(x = turnout, accuracy = 1)),
-            family = "Titillium Web", fontface = "bold", size = 5,
+            family = "Titillium Web", fontface = "bold", size = 3,
             colour = "white", vjust = 1) +
   # Scales
   scale_x_continuous(name = NULL, breaks = as.numeric(names(vec_assembly_year)), 
@@ -127,23 +128,38 @@ data_wb_ac_elections %>%
   scale_y_continuous(name = "Count (crore)", 
                      labels = scales::label_comma(scale = 1e-7),
                      expand = expansion(mult = c(0.01, 0.01))) +
-  scale_fill_manual(breaks = c("electors", "votes"), values = c("white", "#06038D"),
-                      labels = c("Eligible Voters", "Votes Polled"), name = NULL) +
+  scale_fill_manual(breaks = c("electors", "votes"), name = NULL, guide = NULL,
+                    values = c("lightblue4", "#06038D"),
+                    labels = c("Eligible Voters", "Votes Polled")) +
   scale_linewidth_manual(breaks = c("electors", "votes"), values = c(2, 0.5),
                          labels = c("Eligible Voters", "Votes Polled"), 
                          name = NULL, guide = NULL) +
-  theme_vaw_dark() +
+  # Labels
+  labs(title = "Since 1996, turnout for assembly elections has been above 80% every time save for 2001",
+       subtitle = "<b style='color:lightblue4'>Light blue bars</b> indicate indicate number of eligible voters, <b style='color:#06038D'>Dark blue bars</b> indicate actual votes polled. The numbers indicate turnout percentage.",
+       caption = "Data: yashveeeeeeer.github.io/india-geodata, lokdhaba.ashoka.edu.in, data.opencity.in, News18 | Design: @JediPro"
+       ) +
+  theme_vaw_dark_mobile() +
   theme(panel.grid.major.x = element_blank(),
-        legend.position = "inside", legend.position.inside = c(0.2, 0.7))
+        axis.ticks.x = element_blank(),
+        legend.position = "inside", legend.position.inside = c(0.2, 0.7),
+        plot.subtitle = element_textbox_simple(fill = "white", 
+                                               colour = "grey7", 
+                                               padding = unit(1, "mm"),
+                                               r = unit(x = 2, "mm")))
+
+ggsave(filename = paste0("plot_election_turnout_trend", ".png"), 
+       plot = plot_election_turnout_trend, device = "png", 
+       width = 16, height = 20, units = "cm", dpi = 300, limitsize = FALSE)
   
 
 # Mosaic plot showing eligible voters, turnout, top party shares --------------
-plot_mosaic_election_turnouts <- data_wb_ac_elections %>% 
+data_mosaic_election_turnouts <- data_wb_ac_elections %>% 
   # Total votes polled
-  group_by(year, party) %>% 
+  group_by(assembly_no, year, party) %>% 
   summarise(votes = sum(votes), .groups = "drop") %>% 
   # Keep top three parties and group the rest
-  group_by(year) %>% 
+  group_by(assembly_no) %>% 
   mutate(votes_polled = sum(votes),
          vote_share = votes/votes_polled,
          # Do not consider Independents and NOTA when finding top parties
@@ -153,10 +169,66 @@ plot_mosaic_election_turnouts <- data_wb_ac_elections %>%
          # Recode parties not in top 3
          party = case_when(party_rank > 2 | is.na(party_rank) ~ "OTH", 
                            TRUE ~ party)) %>% 
-  group_by(year, party) %>% 
+  # Group all but top two into the others category
+  group_by(assembly_no, year, party) %>% 
   summarise(votes = sum(votes), votes_polled = max(votes_polled), 
             vote_share = sum(vote_share), 
             party_rank = min(party_rank, na.rm = TRUE),
             .groups = "drop") %>% 
   ungroup() %>% 
-  arrange(year, party_rank)
+  arrange(assembly_no, year, party_rank) %>% 
+  # Create rectangles for each row
+  # First, find relative width in the x direction
+  (function(df) left_join(x = df, 
+                          y = df %>% distinct(assembly_no, votes_polled) %>% 
+                            arrange(assembly_no) %>% 
+                            mutate(xmax = cumsum(votes_polled)/sum(votes_polled),
+                                   xmin = lag(xmax, default = 0)) %>% 
+                            select(assembly_no, xmin, xmax),
+                          by = "assembly_no")) %>% 
+  # Calculate relative height in y direction
+  group_by(assembly_no) %>% 
+  mutate(ymax = cumsum(vote_share),
+         # limit to 1
+         ymax = case_when(ymax > 1 ~ 1, TRUE ~ ymax),
+         ymin = lag(ymax, default = 0)) %>% 
+  ungroup()
+
+# Plot
+data_mosaic_election_turnouts %>% 
+  ggplot() +
+  # Mosaic
+  geom_rect(mapping = aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax,
+                          fill = party), colour = "grey7", linewidth = 2) +
+  
+  # Scales
+  scale_x_continuous(name = NULL, 
+                     breaks = data_mosaic_election_turnouts %>% 
+                       distinct(assembly_no, xmax, xmin) %>% 
+                       arrange(assembly_no) %>% 
+                       mutate(xmid = (xmax + xmin)/2) %>% 
+                       select(xmid) %>% 
+                       unlist(use.names = FALSE), 
+                     labels = data_mosaic_election_turnouts %>% 
+                       distinct(assembly_no, year) %>% 
+                       arrange(assembly_no) %>% 
+                       select(year) %>% 
+                       unlist(use.names = FALSE), 
+                     guide = guide_axis(n.dodge = 1),
+                     expand = expansion(mult = c(0.01, 0.01))) +
+  scale_y_continuous(name = "Share of votes", 
+                     labels = scales::label_percent(accuracy = 1),
+                     expand = expansion(mult = c(0.01, 0.01))) +
+  scale_fill_manual(breaks = c("AITC", "BJP", "CPM", "CPI", "INC", "OTH"), 
+                    name = NULL, guide = guide_legend(nrow = 1),
+                    values = c("limegreen", "orange", "firebrick", 
+                               "firebrick1", "dodgerblue", "grey50")) +
+  theme_vaw_dark_mobile() +
+  theme(panel.grid.major.x = element_blank(),
+        axis.ticks.x = element_blank(), axis.text.x = element_text(angle = 45),
+        plot.subtitle = element_textbox_simple(fill = "white", 
+                                               colour = "grey7", 
+                                               padding = unit(1, "mm"),
+                                               r = unit(x = 2, "mm")))
+  
+  
