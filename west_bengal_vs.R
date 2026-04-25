@@ -35,6 +35,7 @@ data_wb_ac_elections <- table_ac_elections %>%
   # Rename manually
   rename(candidate_id = pid) %>% 
   # Process columns
-  mutate()
+  mutate(enop = replace_na(data = enop, replace = 1))
 
-fgh <- table_ac_elections %>% filter(is.na(Sub_Region))
+fgh <- data_wb_ac_elections %>% filter(is.na(enop))
+fgh <- data_wb_ac_elections %>% filter(constituency_no == 101 & year == 1962)
