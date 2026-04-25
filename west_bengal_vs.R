@@ -35,7 +35,25 @@ data_wb_ac_elections <- table_ac_elections %>%
   # Rename manually
   rename(candidate_id = pid) %>% 
   # Process columns
-  mutate(enop = replace_na(data = enop, replace = 1))
+  mutate(enop = replace_na(data = enop, replace = 1),
+         # Recode NOTA
+         candidate = case_when(str_detect(candidate, pattern = "None.*") ~ "NOTA", 
+                               TRUE ~ candidate),
+         # Replace NAs in candidate type
+         candidate_type = case_when(candidate == "NOTA" ~ "NOTA",
+                                    candidate != "NOTA" & is.na(candidate_type) & 
+                                      constituency_type == "ST" ~ "ST",
+                                    candidate != "NOTA" & is.na(candidate_type) & 
+                                      constituency_type == "SC" ~ "SC",
+                                    candidate_type == "GENERAL" ~ "GEN",
+                                    TRUE ~ candidate_type),
+         sex = case_when(candidate == "NOTA" ~ "N",
+                         sex == "MALE" ~ "M", TRUE ~ sex)
+         ) %>% 
+  # Replace missing values with Mode for select columns
+  group_by(party) %>% 
+  mutate(party_id = case_when(is.na(party_id) ~ DescTools::Mode(party_id, na.rm = TRUE), TRUE ~ party_id)) %>% 
+  ungroup()
 
-fgh <- data_wb_ac_elections %>% filter(is.na(enop))
-fgh <- data_wb_ac_elections %>% filter(constituency_no == 101 & year == 1962)
+fgh <- data_wb_ac_elections %>% count(sex)
+fgh <- data_wb_ac_elections %>% filter(is.na(sex)) %>% count(party_id, party, candidate_id, candidate)
