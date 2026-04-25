@@ -93,6 +93,9 @@ data_ac_turnout <- table_ac_turnout %>%
   left_join(y = data_wb_ac_elections %>% filter(year == 2021) %>%
               distinct(ac_no, ac_name), by = c("constituency" = "ac_name"))
 
+# Define look up vector for mapping years to assembly number
+vec_assembly_year <- data_wb_ac_elections %>% distinct(assembly_no, year) %>% deframe()
+
 # Election wise eligible voters and votes polled -----------------------
 data_wb_ac_elections %>% 
   group_by(assembly_no, ac_no) %>% 
@@ -107,9 +110,25 @@ data_wb_ac_elections %>%
   # plot
   ggplot() +
   # Column chart for total and actual
-  geom_col(mapping = aes(x = assembly_no, y = value, 
-                         group = metric, fill = metric), position = "identity",
-           colour = "white", linewidth = 2) +
+  geom_col(mapping = aes(x = assembly_no, y = value, group = metric, fill = metric, 
+                         width = ifelse(metric == "electors", 1, 0.7),
+                         linewidth = metric), linejoin = "round", lineend = "round",
+           position = "identity", colour = "grey7") +
+  # Scales
+  scale_x_continuous(name = NULL, breaks = as.numeric(names(vec_assembly_year)), 
+                     labels = vec_assembly_year, 
+                     expand = expansion(mult = c(0.01, 0.01))) +
+  scale_y_continuous(name = "Count (crore)", 
+                     labels = scales::label_comma(scale = 1e-7),
+                     expand = expansion(mult = c(0.01, 0.01))) +
+  scale_fill_manual(breaks = c("electors", "votes"), values = c("grey", "navy"),
+                      labels = c("Eligible Voters", "Votes Polled"), name = NULL) +
+  scale_linewidth_manual(breaks = c("electors", "votes"), values = c(2, 0.5),
+                         labels = c("Eligible Voters", "Votes Polled"), 
+                         name = NULL, guide = NULL) +
+  theme_vaw_dark() +
+  theme(panel.grid.major.x = element_blank(),
+        legend.position = "inside", legend.position.inside = c(0.2, 0.7))
   
 
 # Mosaic plot showing eligible voters, turnout, top party shares --------------
