@@ -114,6 +114,12 @@ data_wb_ac_elections %>%
                          width = ifelse(metric == "electors", 1, 0.7),
                          linewidth = metric), linejoin = "round", lineend = "round",
            position = "identity", colour = "grey7") +
+  # Turnout ratio
+  geom_text(data = . %>% filter(metric == "votes"), 
+            mapping = aes(x = assembly_no, y = value, 
+                          label = scales::percent(x = turnout, accuracy = 1)),
+            family = "Titillium Web", fontface = "bold", size = 5,
+            colour = "white", vjust = 1) +
   # Scales
   scale_x_continuous(name = NULL, breaks = as.numeric(names(vec_assembly_year)), 
                      labels = vec_assembly_year, 
@@ -121,7 +127,7 @@ data_wb_ac_elections %>%
   scale_y_continuous(name = "Count (crore)", 
                      labels = scales::label_comma(scale = 1e-7),
                      expand = expansion(mult = c(0.01, 0.01))) +
-  scale_fill_manual(breaks = c("electors", "votes"), values = c("grey", "navy"),
+  scale_fill_manual(breaks = c("electors", "votes"), values = c("white", "#06038D"),
                       labels = c("Eligible Voters", "Votes Polled"), name = NULL) +
   scale_linewidth_manual(breaks = c("electors", "votes"), values = c(2, 0.5),
                          labels = c("Eligible Voters", "Votes Polled"), 
