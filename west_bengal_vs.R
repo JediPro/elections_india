@@ -4,7 +4,7 @@
 library(tidyverse)
 library(sf)
 library(ggfittext)
-# library(ggalluvial)
+library(ggridges)
 
 # Set working directory ------------------------------
 setwd("C:\\Stuff\\Datasets\\GitHub\\elections_india\\")
@@ -454,11 +454,38 @@ data_turnout_incumbency <- data_wb_ac_elections %>%
 t.test(x = data_turnout_incumbency$turnout_delta[data_turnout_incumbency$incumbency],
        data_turnout_incumbency$turnout_delta[!data_turnout_incumbency$incumbency])
 
-# plot
+# Plot ridgeplot of Turnout Deltas by Degree of Incumbency
 data_turnout_incumbency %>% 
-  ggplot()
-  # Empirical Cumulatrive Distribution Function
-  
+  ggplot() +
+  # Ridgeplot
+  geom_density_ridges(mapping = aes(x = turnout_delta, y = incumbency_degree, 
+                                    fill = incumbency_degree), alpha = 0.8, colour = "grey7") +
+  # Scales
+  scale_x_continuous(name = "Turnout Delta (%age)", 
+                     labels = scales::label_percent(accuracy = 1), 
+                     expand = expansion(mult = c(0.05, 0.05))) +
+  scale_y_discrete(name = "Degree of Incumbency (Number of consecutive terms won)", 
+                   breaks = c("0", "1_2", "3_4", "GT5"),
+                   labels = c("0", "1-2", "3-4", "> 5"),
+                   expand = expansion(mult = c(0.07, 0.07))) +
+  scale_fill_manual(name = NULL, guide = NULL, 
+                    breaks = c("0", "1_2", "3_4", "GT5"),
+                    values = c("", "1-2", "3-4", "> 5"),) +
+  # Labels
+  labs(title = "Elections have become increasingly bipolar. 2021 saw the largest number of parties competing, but ENOP was the lowest",
+       subtitle = "<b style='color:gold3'>The gold circles</b> represent number of parties while <b style='color:lightblue3'>the light blue line</b> indicates smoothed trend of ENOP, which is a statistical measure showing fragmentation of the vote, with higher values indicating more fragmentation.",
+       caption = "Data: yashveeeeeeer.github.io/india-geodata, lokdhaba.ashoka.edu.in, data.opencity.in, News18 | Design: @JediPro") +
+  theme_vaw_dark_mobile() +
+  theme(panel.grid.major.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        plot.subtitle = element_textbox_simple(fill = "white", 
+                                               colour = "grey7", 
+                                               padding = unit(1, "mm"),
+                                               r = unit(x = 2, "mm")))
+
+ggsave(filename = paste0("plot_enop_year_trend", ".png"), 
+       plot = plot_enop_year_trend, device = "png", 
+       width = 16, height = 20, units = "cm", dpi = 300, limitsize = FALSE)
 
 
 data_turnout_incumbency %>% 
@@ -467,7 +494,8 @@ data_turnout_incumbency %>%
   group_by(turnout_delta_ventile) %>% 
   summarise(n = n(), min_delta = min(turnout_delta), 
             max_delta = max(turnout_delta), n_inc_win = sum(incumbency),
-            r_inc_win = n_inc_win/n)
+            r_inc_win = n_inc_win/n) %>% 
+  
 
   geom_density(mapping = aes(x = turnout_delta, group = incumbency_degree, colour = incumbency_degree))
   facet_wrap(facets = vars(n_win_incumbent))
