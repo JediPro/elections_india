@@ -4,7 +4,7 @@
 library(tidyverse)
 library(sf)
 library(ggfittext)
-library(ggalluvial)
+# library(ggalluvial)
 
 # Set working directory ------------------------------
 setwd("C:\\Stuff\\Datasets\\GitHub\\elections_india\\")
@@ -136,9 +136,8 @@ plot_election_turnout_trend <- data_wb_ac_elections %>%
                          name = NULL, guide = NULL) +
   # Labels
   labs(title = "Since 1996, turnout for assembly elections has been above 80% every time save for 2001",
-       subtitle = "<b style='color:lightblue4'>Light blue bars</b> indicate indicate number of eligible voters, <b style='color:#06038D'>Dark blue bars</b> indicate actual votes polled. The numbers indicate turnout percentage.",
-       caption = "Data: yashveeeeeeer.github.io/india-geodata, lokdhaba.ashoka.edu.in, data.opencity.in, News18 | Design: @JediPro"
-       ) +
+       subtitle = "<b style='color:lightblue4'>Light blue bars</b> indicate number of eligible voters, <b style='color:#06038D'>Dark blue bars</b> indicate actual votes polled. The numbers indicate turnout percentage.",
+       caption = "Data: yashveeeeeeer.github.io/india-geodata, lokdhaba.ashoka.edu.in, data.opencity.in, News18 | Design: @JediPro") +
   theme_vaw_dark_mobile() +
   theme(panel.grid.major.x = element_blank(),
         axis.ticks.x = element_blank(),
@@ -195,12 +194,17 @@ data_mosaic_election_turnouts <- data_wb_ac_elections %>%
   ungroup()
 
 # Plot
-data_mosaic_election_turnouts %>% 
+plot_mosaic_election_turnouts <- data_mosaic_election_turnouts %>% 
   ggplot() +
   # Mosaic
   geom_rect(mapping = aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax,
-                          fill = party), colour = "grey7", linewidth = 2) +
-  
+                          fill = party), colour = "grey7", linewidth = 1) +
+  # Labels
+  geom_fit_text(mapping = aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax,
+                              label = scales::percent(x = vote_share, accuracy = 1)),
+                family = "Titillium Web", fontface = "bold", size = 10, 
+                min.size = 5, grow = FALSE, outside = FALSE,
+                colour = "white", place = "centre") +
   # Scales
   scale_x_continuous(name = NULL, 
                      breaks = data_mosaic_election_turnouts %>% 
@@ -216,13 +220,18 @@ data_mosaic_election_turnouts %>%
                        unlist(use.names = FALSE), 
                      guide = guide_axis(n.dodge = 1),
                      expand = expansion(mult = c(0.01, 0.01))) +
-  scale_y_continuous(name = "Share of votes", 
+  scale_y_reverse(name = "Share of votes", 
                      labels = scales::label_percent(accuracy = 1),
                      expand = expansion(mult = c(0.01, 0.01))) +
   scale_fill_manual(breaks = c("AITC", "BJP", "CPM", "CPI", "INC", "OTH"), 
+                    labels = c("TMC", "BJP", "CPM", "CPI", "INC", "OTH"), 
                     name = NULL, guide = guide_legend(nrow = 1),
-                    values = c("limegreen", "orange", "firebrick", 
-                               "firebrick1", "dodgerblue", "grey50")) +
+                    values = c("#046A38", "#FF671F", "#de0000", 
+                               "firebrick", "#06038D", "grey50")) +
+  # Labels
+  labs(title = "TMC has kept on increasing its vorte share for the past 4 elections. BJP has never been in the top two till the 2021 edition",
+       subtitle = "The width of the bars are proportional to the total votes polled in that election. The height of each segment corresponds to the party's vote share",
+       caption = "Data: yashveeeeeeer.github.io/india-geodata, lokdhaba.ashoka.edu.in, data.opencity.in, News18 | Design: @JediPro") +
   theme_vaw_dark_mobile() +
   theme(panel.grid.major.x = element_blank(),
         axis.ticks.x = element_blank(), axis.text.x = element_text(angle = 45),
@@ -230,5 +239,69 @@ data_mosaic_election_turnouts %>%
                                                colour = "grey7", 
                                                padding = unit(1, "mm"),
                                                r = unit(x = 2, "mm")))
-  
-  
+
+ggsave(filename = paste0("plot_mosaic_election_turnouts", ".png"), 
+       plot = plot_mosaic_election_turnouts, device = "png", 
+       width = 16, height = 20, units = "cm", dpi = 300, limitsize = FALSE)
+
+# ENOP trends -----------------------------------
+plot_enop_year_trend <- data_wb_ac_elections %>% 
+  # Remove NOTA
+  filter(party != "NOTA") %>% 
+  # Consider each independent as a separate party
+  mutate(party = case_when(party == "IND" ~ paste(party, candidate_id, sep = "_"),
+                           TRUE ~ party)) %>% 
+  # Total votes polled
+  group_by(assembly_no, year, party) %>% 
+  summarise(votes = sum(votes), n_candidate = n_distinct(candidate),
+            .groups = "drop") %>% 
+  # Keep top three parties and group the rest
+  group_by(assembly_no, year) %>% 
+  mutate(votes_polled = sum(votes),
+         vote_share = votes/votes_polled) %>% 
+  # Calculate ENOP per year
+  summarise(enop = 1/sum(vote_share^2), n_candidate = sum(n_candidate),
+            n_party = sum(str_detect(string = party, pattern = "IND_.*", negate = TRUE)),
+            .groups = "drop") %>% 
+  # plot
+  ggplot() +
+  # trace line
+  geom_smooth(mapping = aes(x = assembly_no, y = enop), colour = "lightblue",
+              formula = y ~ x, se = FALSE, method = "loess", linewidth = 2) +
+  # Plot point as number of parties
+  geom_point(mapping = aes(x = assembly_no, y = enop, size = n_party),
+             colour = "gold") +
+  geom_text(mapping = aes(x = assembly_no, y = enop, label = n_party),
+             colour = "grey7", family = "Titillium Web", size = 3, fontface = "bold") +
+  # Scales
+  scale_x_continuous(name = NULL, breaks = as.numeric(names(vec_assembly_year)), 
+                     labels = vec_assembly_year, 
+                     expand = expansion(mult = c(0.05, 0.05))) +
+  scale_y_continuous(name = "Effective Number of Parties (ENOP)", 
+                     labels = scales::label_comma(scale = 1, accuracy = 1),
+                     expand = expansion(mult = c(0.07, 0.07))) +
+  scale_size_continuous(name = NULL, guide = NULL, range = c(5, 15)) +
+  # Labels
+  labs(title = "Elections have become increasingly bipolar. 2021 saw the largest number of parties competing, but ENOP was the lowest",
+       subtitle = "<b style='color:gold3'>The gold circles</b> represent number of parties while <b style='color:lightblue3'>the light blue line</b> indicates smoothed trend of ENOP, which is a statistical measure showing fragmentation of the vote, with higher values indicating more fragmentation.",
+       caption = "Data: yashveeeeeeer.github.io/india-geodata, lokdhaba.ashoka.edu.in, data.opencity.in, News18 | Design: @JediPro") +
+  theme_vaw_dark_mobile() +
+  theme(panel.grid.major.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        plot.subtitle = element_textbox_simple(fill = "white", 
+                                               colour = "grey7", 
+                                               padding = unit(1, "mm"),
+                                               r = unit(x = 2, "mm")))
+
+ggsave(filename = paste0("plot_enop_year_trend", ".png"), 
+       plot = plot_enop_year_trend, device = "png", 
+       width = 16, height = 20, units = "cm", dpi = 300, limitsize = FALSE)
+
+# Relation between turnout and change ----------------------------------
+data_wb_ac_elections %>% 
+  # Recode ac numbers as per latest year, grouping by name
+  group_by(ac_name) %>% 
+  filter(position == 1 & year >= 1977) %>% 
+  distinct(ac_no, ac_name, year, electors) %>% 
+  pivot_wider(id_cols = c(ac_no, ac_name), names_from = year, values_from = electors) %>% 
+  arrange(ac_no) -> fgh
