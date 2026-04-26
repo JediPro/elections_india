@@ -403,3 +403,51 @@ ggsave(filename = paste0("plot_enop_year_trend", ".png"),
        width = 16, height = 20, units = "cm", dpi = 300, limitsize = FALSE)
 
 # Relation between turnout and change ----------------------------------
+data_turnout_incumbency <- data_wb_ac_elections %>% 
+  # Remove NOTA
+  filter(party != "NOTA") %>% 
+  # calculate winning margin
+  group_by(assembly_no, ac_no, ac_name) %>% 
+  arrange(assembly_no, ac_no, ac_name, position) %>% 
+  mutate(vote_share = votes/valid_votes,
+         margin = vote_share - lead(vote_share),
+         party = case_when(party == "IND" ~ paste(party, candidate_id, sep = "_"), TRUE ~ party)) %>% 
+  ungroup() %>% 
+  # keep only winners
+  filter(position == 1) %>% 
+  group_by(ac_name) %>% 
+  arrange(ac_name, assembly_no) %>% 
+  mutate(prev_party = lag(party),
+         prev_margin = lag(margin),
+         cum_mean_turnout = cumsum(valid_votes)/cumsum(electors),
+         turnout = valid_votes/electors,
+         prev_turnout = lag(turnout),
+         incumbency = ifelse(test = party == prev_party, 1, 0),
+         # Number of incumbent wins
+         n_win_incumbent = accumulate(.x = incumbency, 
+                                      .f = function(prev, curr) {
+                                        if (curr == 0 | is.na(prev)) curr 
+                                        else prev + curr
+                                      })) %>% 
+  ungroup() %>% 
+  select(ac_name, assembly_no, year, electors, valid_votes, turnout,
+         party, vote_share, margin, prev_party, prev_margin, incumbency,
+         n_win_incumbent, prev_turnout, cum_mean_turnout) %>% 
+  drop_na(incumbency) %>% 
+  # Recode incumbent wins
+  mutate(incumbency_degree = case_when(n_win_incumbent == 0 ~ "A.NON_INCUMBENT",
+                                       n_win_incumbent == 1 ~ "B.INCUMBENT_1",
+                                       n_win_incumbent == 2 ~ "C.INCUMBENT_2",
+                                       n_win_incumbent %in% c(3,4) ~ "D.INCUMBER_3_4",
+                                       TRUE ~ "E.INCUMBENT_GT5"))
+
+data_turnout_incumbency %>% count(incumbency, n_win_incumbent)
+
+
+cor(data_turnout_incumbency$turnout, data_turnout_incumbency$margin)
+data_turnout_incumbency %>% 
+  mutate(incumbency = if_else(condition = incumbency == 1, TRUE, FALSE),
+         turnout_delta = turnout - prev_turnout) %>% 
+  ggplot() +
+  geom_density(mapping = aes(x = turnout_delta, group = incumbency_degree, colour = incumbency_degree))
+  facet_wrap(facets = vars(n_win_incumbent))
