@@ -63,7 +63,44 @@ data_wb_ac_elections <- table_ac_elections %>%
          candidate_id = case_when(candidate == "NOTA" ~ "NOTA", 
                                   TRUE ~ candidate_id),
          sex = case_when(candidate == "NOTA" ~ "N",
-                         sex == "MALE" ~ "M", TRUE ~ sex)
+                         sex == "MALE" ~ "M", TRUE ~ sex),
+         ac_name = str_replace(string = ac_name, pattern = "NORTH$", replace = "UTTAR"),
+         ac_name = str_replace(string = ac_name, pattern = "SOUTH$", replace = "DAKSHIN"),
+         ac_name = str_replace(string = ac_name, pattern = "EAST$", replace = "PURBA"),
+         ac_name = str_replace(string = ac_name, pattern = "WEST$", replace = "PASCHIM"),
+         # Recode constituency names
+         ac_name = replace_values(x = ac_name,
+                                  "MAKLIGANJ" ~ "MEKLIGANJ",
+                                  c("ALIPORE DUARS", "ALIPUR DUARS", 
+                                    "ALIPURDUARAS", "ALIPURDVARS") ~ "ALIPURDUARS",
+                                  "ARAMBAG" ~ "ARAMBAGH",
+                                  "ARSHA" ~ "ARSA",
+                                  "ASHOKNAGAR" ~ "ASHOKENAGAR",
+                                  "BAGDAHA" ~ "BAGDAH",
+                                  c("BANGNAN", "BEGNAN") ~ "BAGNAN",
+                                  "BERHAMPORE" ~ "BAHARAMPUR",
+                                  "BALRAMPUR" ~ "BALARAMPUR",
+                                  "BALTY" ~ "BALLY",
+                                  "BANDUAN" ~ "BANDWAN",
+                                  "BURDWAN DAKSHIN" ~ "BARDHAMAN DAKSHIN",
+                                  "BURDWAN UTTAR" ~ "BARDHAMAN UTTAR",
+                                  "BELIAGHATA" ~ "BELEGHATA",
+                                  "BELIAGHATYA UTTAR" ~ "BELIAGHATA UTTAR",
+                                  "BHOWANIPUR" ~ "BHABANIPUR",
+                                  c("BHAGARANGOLA", "BHAGAWANGOLA") ~ "BHAGABANGOLA",
+                                  "BHAGBANPUR" ~ "BHAGABANGOLA",
+                                  c("BHANAGAR", "BHANGAR") ~ "BHANGORE",
+                                  "BHATRARA" ~ "BHATPARA",
+                                  "BISHNUPUR(SC)" ~ "BISHNUPUR",
+                                  "BOWBAZAR" ~ "BOW BAZAR",
+                                  "CHAKDAH" ~ "CHAKDAHA",
+                                  "CHANDERNAGORE" ~ "CHANDANNAGORE",
+                                  "CHANDITAIA" ~ "CHANDITALA",
+                                  "CHINSURAH" ~ "CHUNCHURA",
+                                  "CHOWRINGHEE" ~ "CHOWRANGEE",
+                                  "CONTAI DAKSHIN" ~ "KANTHI DAKSHIN",
+                                  "CONTAI UTTAR" ~ "KANTHI UTTAR")
+                                  
          ) %>% 
   # Replace missing values with Mode for select columns
   group_by(party) %>% 
@@ -299,9 +336,18 @@ ggsave(filename = paste0("plot_enop_year_trend", ".png"),
 
 # Relation between turnout and change ----------------------------------
 data_wb_ac_elections %>% 
-  # Recode ac numbers as per latest year, grouping by name
-  group_by(ac_name) %>% 
-  filter(position == 1 & year >= 1977) %>% 
-  distinct(ac_no, ac_name, year, electors) %>% 
-  pivot_wider(id_cols = c(ac_no, ac_name), names_from = year, values_from = electors) %>% 
-  arrange(ac_no) -> fgh
+  distinct(ac_name, assembly_no, electors) %>% 
+  count(ac_name, assembly_no) %>% 
+  arrange(desc(assembly_no), ac_name) %>% 
+  add_count(ac_name, name = "cnt") %>% 
+  filter(cnt != max(cnt)) %>% 
+  pivot_wider(names_from = assembly_no, values_from = n) %>% 
+  arrange(ac_name) -> fgh
+  # Recode names to match latest
+  mutate()
+  # Map winning party of previous election
+  filter(position == 1) %>% 
+  group_by(ac_no, ac_name) %>% 
+  arrange(ac_no, ac_name, assembly_no, year) %>% 
+  mutate(prev_party = lag(party)) -> fgh
+  filter(ac_no == 1) -> fgh
