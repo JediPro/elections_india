@@ -68,6 +68,7 @@ data_wb_ac_elections <- table_ac_elections %>%
          ac_name = str_replace(string = ac_name, pattern = "SOUTH$", replace = "DAKSHIN"),
          ac_name = str_replace(string = ac_name, pattern = "EAST$", replace = "PURBA"),
          ac_name = str_replace(string = ac_name, pattern = "WEST$", replace = "PASCHIM"),
+         ac_name = str_replace(string = ac_name, pattern = "CENTRAL$", replace = "MADHYA"),
          # Recode constituency names
          ac_name = replace_values(x = ac_name,
                                   "MAKLIGANJ" ~ "MEKLIGANJ",
@@ -82,6 +83,7 @@ data_wb_ac_elections <- table_ac_elections %>%
                                   "BALRAMPUR" ~ "BALARAMPUR",
                                   "BALTY" ~ "BALLY",
                                   "BANDUAN" ~ "BANDWAN",
+                                  "BARWAN" ~ "BURWAN",
                                   "BURDWAN DAKSHIN" ~ "BARDHAMAN DAKSHIN",
                                   "BURDWAN UTTAR" ~ "BARDHAMAN UTTAR",
                                   "BELIAGHATA" ~ "BELEGHATA",
@@ -99,8 +101,74 @@ data_wb_ac_elections <- table_ac_elections %>%
                                   "CHINSURAH" ~ "CHUNCHURA",
                                   "CHOWRINGHEE" ~ "CHOWRANGEE",
                                   "CONTAI DAKSHIN" ~ "KANTHI DAKSHIN",
-                                  "CONTAI UTTAR" ~ "KANTHI UTTAR")
-                                  
+                                  "CONTAI UTTAR" ~ "KANTHI UTTAR",
+                                  "DHANIAKHALI" ~ "DHANEKHALI",
+                                  "DURGAPUR-I" ~ "DURGAPUR PASCHIM",
+                                  "DURGAPUR-II" ~ "DURGAPUR PURBA",
+                                  "ERGA" ~ "EGRA",
+                                  "FORT" ~ "FARIDPUR",
+                                  "GAJOL" ~ "GAZOLE",
+                                  "GANGJALGHATI" ~ "GANGAJALGHATI",
+                                  "GOAL POKHAR" ~ "GOALPOKHAR",
+                                  "HABBA" ~ "HABRA",
+                                  "HABIBPUR S N" ~ "HABIBPUR",
+                                  c("HARISHCHANDRAPUR", "HARISH CHANDRAPUR") ~ "HARISCHANDRAPUR",
+                                  "HOWRAM UTTAR" ~ "HOWRAH UTTAR",
+                                  "INDAS" ~ "INDUS",
+                                  "JADHAVPUR" ~ "JADAVPUR",
+                                  "JAIPUR" ~ "JOYPUR",
+                                  "JAMAL PUR" ~ "JAMALPUR",
+                                  "JAQYNAGAR" ~ "JOYNAGAR",
+                                  "JORA SANKO" ~ "JORASANKO",
+                                  "JORE BUNGALOW" ~ "JOREBUNGALOW",
+                                  "KABITHIRTHA" ~ "KABITIRTHA",
+                                  "KAILMPONG" ~ "KALIMPONG",
+                                  "KASHIPURA" ~ "KASHIPUR",
+                                  "KESHIARI" ~ "KESHIARY",
+                                  "KHAJURI" ~ "KHEJURI",
+                                  "KOTULPUR" ~ "KATULPUR",
+                                  c("KHARAGPUR RURAL", "KHARAGPUR LOCAL") ~ "KHARAGPUR",
+                                  "KHARAGPUR TOWN" ~ "KHARAGPUR SADAR",
+                                  "KHARDAH" ~ "KHARDAHA",
+                                  "KRISHNAGAR PASCHIM" ~ "KRISHNANAGAR DAKSHIN",
+                                  "KRISHNAGAR PURBA" ~ "KRISHNANAGAR UTTAR",
+                                  "LABPUR" ~ "LABHPUR",
+                                  c("MAHESHTOIA", "MAHESHTOLA") ~ "MAHESHTALA",
+                                  "MAHISHADAL" ~ "MAHISADAL",
+                                  "MAINAGURI" ~ "MAYNAGURI",
+                                  "MALDA" ~ "MALDAHA",
+                                  "MANIKCHAK" ~ "MANICKCHAK",
+                                  "MANICKTOLA" ~ "MANIKTALA",
+                                  "MANTESWAR" ~ "MONTESWAR",
+                                  "MAYURESHWAR" ~ "MAYURESWAR",
+                                  "MIDNAPORE" ~ "MEDINIPUR",
+                                  "MAYNA" ~ "MOYNA",
+                                  "NANUR" ~ "NANOOR",
+                                  "NAYAGARM" ~ "NAYAGRAM",
+                                  "PATASPUR" ~ "PATASHPUR",
+                                  "PATHARPRATHIMA" ~ "PATHARPRATIMA",
+                                  "RAGHUNATHPURA" ~ "RAGHUNATHPUR",
+                                  "RANGAGHAT PURBA" ~ "RANAGHAT PURBA",
+                                  "RANIBANDH" ~ "RANIBUNDH",
+                                  "RASHBEHARI AVENUE" ~ "RASHBEHARI",
+                                  "RATDA" ~ "RATUA",
+                                  "RAYGANJ" ~ "RAJGANJ",
+                                  "RAJNAGAR" ~ "REJINAGAR",
+                                  "SALBANI" ~ "SALBONI",
+                                  c("SERANPORE", "SERAMPORE") ~ "SREERAMPUR",
+                                  "SHAMPUKUR" ~ "SHYAMPUKUR",
+                                  "SITAL KUCHI" ~ "SITALKUCHI",
+                                  "SUZAPUR" ~ "SUJAPUR",
+                                  "SYAMPUR" ~ "SHYAMPUR",
+                                  "TALANGRA" ~ "TALDANGRA",
+                                  c("TOLLY GUNGE", "TOLLYGUNGE") ~ "TOLLYGUNJ",
+                                  c("ULIBERIA DAKSHIN", "ULUBERIA SUOTH") ~ "ULUBERIA DAKSHIN",
+                                  "UTTARAPARA" ~ "UTTARPARA",
+                                  "VISHNUPUR" ~ "BISHNUPUR",
+                                  "BANSBERIA" ~ "SAPTAGRAM",
+                                  "JHALDA" ~ "BAGHMUNDI",
+                                  "MAHAMMAD BAZAR"~ "SAINTHIA",
+                                  "TITAGARH" ~ "BARRACKPUR")
          ) %>% 
   # Replace missing values with Mode for select columns
   group_by(party) %>% 
@@ -335,19 +403,3 @@ ggsave(filename = paste0("plot_enop_year_trend", ".png"),
        width = 16, height = 20, units = "cm", dpi = 300, limitsize = FALSE)
 
 # Relation between turnout and change ----------------------------------
-data_wb_ac_elections %>% 
-  distinct(ac_name, assembly_no, electors) %>% 
-  count(ac_name, assembly_no) %>% 
-  arrange(desc(assembly_no), ac_name) %>% 
-  add_count(ac_name, name = "cnt") %>% 
-  filter(cnt != max(cnt)) %>% 
-  pivot_wider(names_from = assembly_no, values_from = n) %>% 
-  arrange(ac_name) -> fgh
-  # Recode names to match latest
-  mutate()
-  # Map winning party of previous election
-  filter(position == 1) %>% 
-  group_by(ac_no, ac_name) %>% 
-  arrange(ac_no, ac_name, assembly_no, year) %>% 
-  mutate(prev_party = lag(party)) -> fgh
-  filter(ac_no == 1) -> fgh
