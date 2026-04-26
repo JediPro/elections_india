@@ -202,7 +202,7 @@ data_ac_turnout <- table_ac_turnout %>%
 # Define look up vector for mapping years to assembly number
 vec_assembly_year <- data_wb_ac_elections %>% distinct(assembly_no, year) %>% deframe()
 
-# Election wise eligible voters and votes polled -----------------------
+# Plot: Election wise eligible voters and votes polled -----------------------
 plot_election_turnout_trend <- data_wb_ac_elections %>% 
   group_by(assembly_no, ac_no) %>% 
   summarise(electors = max(electors), votes = max(valid_votes), 
@@ -257,7 +257,7 @@ ggsave(filename = paste0("plot_election_turnout_trend", ".png"),
        width = 16, height = 20, units = "cm", dpi = 300, limitsize = FALSE)
   
 
-# Mosaic plot showing eligible voters, turnout, top party shares --------------
+# Plot: Mosaic plot showing eligible voters, turnout, top party shares --------------
 data_mosaic_election_turnouts <- data_wb_ac_elections %>% 
   # Total votes polled
   group_by(assembly_no, year, party) %>% 
@@ -349,7 +349,7 @@ ggsave(filename = paste0("plot_mosaic_election_turnouts", ".png"),
        plot = plot_mosaic_election_turnouts, device = "png", 
        width = 16, height = 20, units = "cm", dpi = 300, limitsize = FALSE)
 
-# ENOP trends -----------------------------------
+# Plot: ENOP trends -----------------------------------
 plot_enop_year_trend <- data_wb_ac_elections %>% 
   # Remove NOTA
   filter(party != "NOTA") %>% 
@@ -411,43 +411,63 @@ data_turnout_incumbency <- data_wb_ac_elections %>%
   arrange(assembly_no, ac_no, ac_name, position) %>% 
   mutate(vote_share = votes/valid_votes,
          margin = vote_share - lead(vote_share),
-         party = case_when(party == "IND" ~ paste(party, candidate_id, sep = "_"), TRUE ~ party)) %>% 
+         # Treat each independent as a separate party
+         party = case_when(party == "IND" ~ paste(party, candidate_id, sep = "_"), 
+                           TRUE ~ party)) %>% 
   ungroup() %>% 
   # keep only winners
   filter(position == 1) %>% 
+  # Compare to previous elections
   group_by(ac_name) %>% 
   arrange(ac_name, assembly_no) %>% 
   mutate(prev_party = lag(party),
-         prev_margin = lag(margin),
-         cum_mean_turnout = cumsum(valid_votes)/cumsum(electors),
+         # Calculate turnout
          turnout = valid_votes/electors,
-         prev_turnout = lag(turnout),
+         # Flag if incumbent won
          incumbency = ifelse(test = party == prev_party, 1, 0),
-         # Number of incumbent wins
+         # Number of incumbent parties previous consecutive wins
          n_win_incumbent = accumulate(.x = incumbency, 
                                       .f = function(prev, curr) {
                                         if (curr == 0 | is.na(prev)) curr 
                                         else prev + curr
-                                      })) %>% 
+                                      }),
+         # Recode incumbent wins
+         incumbency_degree = case_when(n_win_incumbent == 0 ~ "0",
+                                       n_win_incumbent <= 2 ~ "1_2",
+                                       n_win_incumbent <= 4 ~ "3_4",
+                                       TRUE ~ "GT5"),
+         # Recode incumbency as boolean
+         incumbency = if_else(condition = incumbency == 1, TRUE, FALSE),
+         # Cumulative turnout percentage
+         cum_mean_turnout = cumsum(valid_votes)/cumsum(electors),
+         # cum_mean_turnout = cummean(turnout),
+         # Difference in turnout from cumulative mean
+         turnout_delta = turnout - cum_mean_turnout) %>% 
   ungroup() %>% 
-  select(ac_name, assembly_no, year, electors, valid_votes, turnout,
-         party, vote_share, margin, prev_party, prev_margin, incumbency,
-         n_win_incumbent, prev_turnout, cum_mean_turnout) %>% 
-  drop_na(incumbency) %>% 
-  # Recode incumbent wins
-  mutate(incumbency_degree = case_when(n_win_incumbent == 0 ~ "A.NON_INCUMBENT",
-                                       n_win_incumbent == 1 ~ "B.INCUMBENT_1",
-                                       n_win_incumbent == 2 ~ "C.INCUMBENT_2",
-                                       n_win_incumbent %in% c(3,4) ~ "D.INCUMBER_3_4",
-                                       TRUE ~ "E.INCUMBENT_GT5"))
+  # Remove 1st instance of each constituency
+  drop_na(incumbency) %>%
+  select(ac_name, assembly_no, year, electors, valid_votes, 
+         turnout, cum_mean_turnout, turnout_delta,
+         party, vote_share, margin, prev_party, 
+         incumbency, incumbency_degree) 
 
-data_turnout_incumbency %>% count(incumbency, n_win_incumbent)
+t.test(x = data_turnout_incumbency$turnout_delta[data_turnout_incumbency$incumbency],
+       data_turnout_incumbency$turnout_delta[!data_turnout_incumbency$incumbency])
 
-
-cor(data_turnout_incumbency$turnout, data_turnout_incumbency$margin)
+# plot
 data_turnout_incumbency %>% 
-  mutate(incumbency = if_else(condition = incumbency == 1, TRUE, FALSE),
-         turnout_delta = turnout - prev_turnout) %>% 
-  ggplot() +
+  ggplot()
+  # Empirical Cumulatrive Distribution Function
+  
+
+
+data_turnout_incumbency %>% 
+  # Divide into 20 equal ventiles
+  mutate(turnout_delta_ventile = ntile(x = turnout_delta, n = 20)) %>% 
+  group_by(turnout_delta_ventile) %>% 
+  summarise(n = n(), min_delta = min(turnout_delta), 
+            max_delta = max(turnout_delta), n_inc_win = sum(incumbency),
+            r_inc_win = n_inc_win/n)
+
   geom_density(mapping = aes(x = turnout_delta, group = incumbency_degree, colour = incumbency_degree))
   facet_wrap(facets = vars(n_win_incumbent))
