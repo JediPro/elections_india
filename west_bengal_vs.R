@@ -454,26 +454,33 @@ data_turnout_incumbency <- data_wb_ac_elections %>%
 t.test(x = data_turnout_incumbency$turnout_delta[data_turnout_incumbency$incumbency],
        data_turnout_incumbency$turnout_delta[!data_turnout_incumbency$incumbency])
 
+
+
+
 # Plot ridgeplot of Turnout Deltas by Degree of Incumbency
-data_turnout_incumbency %>% 
+plot_turnour_delta_incumbency <- data_turnout_incumbency %>% 
   ggplot() +
   # Ridgeplot
   geom_density_ridges(mapping = aes(x = turnout_delta, y = incumbency_degree, 
-                                    fill = incumbency_degree), alpha = 0.8, colour = "grey7") +
+                                    fill = incumbency_degree), 
+                      alpha = 0.8, colour = "grey7", rel_min_height = 0.01,
+                      scale = 1.5, quantiles = 2, quantile_lines = TRUE,
+                      linewidth = 1) +
   # Scales
-  scale_x_continuous(name = "Turnout Delta (%age)", 
+  scale_x_continuous(name = "Turnout Delta", 
                      labels = scales::label_percent(accuracy = 1), 
-                     expand = expansion(mult = c(0.05, 0.05))) +
+                     expand = expansion(mult = c(0.05, 0.1)),
+                     limits = c(-0.15, 0.25)) +
   scale_y_discrete(name = "Degree of Incumbency (Number of consecutive terms won)", 
                    breaks = c("0", "1_2", "3_4", "GT5"),
                    labels = c("0", "1-2", "3-4", "> 5"),
                    expand = expansion(mult = c(0.07, 0.07))) +
   scale_fill_manual(name = NULL, guide = NULL, 
                     breaks = c("0", "1_2", "3_4", "GT5"),
-                    values = c("", "1-2", "3-4", "> 5"),) +
+                    values = c("#046A38", "grey87", "#06038D", "#FF671F"),) +
   # Labels
-  labs(title = "Elections have become increasingly bipolar. 2021 saw the largest number of parties competing, but ENOP was the lowest",
-       subtitle = "<b style='color:gold3'>The gold circles</b> represent number of parties while <b style='color:lightblue3'>the light blue line</b> indicates smoothed trend of ENOP, which is a statistical measure showing fragmentation of the vote, with higher values indicating more fragmentation.",
+  labs(title = "At a constituency level, instances of a higher turnout than usual tends to point to a win for the incumbent. This effect increases with a higher degree of incumbency",
+       subtitle = "Turnout delta is the difference of turnout %age in the current instance vs mean turnout in all assembly elections at that constituency so far<br>Degree of incumbency represent the number of consecutive times the current incumbent has previously won. 0 means the incumbent did not win the current election, 1 means they won the current and previous election, and so on<br>The curves show distribution of turnout delta for that category",
        caption = "Data: yashveeeeeeer.github.io/india-geodata, lokdhaba.ashoka.edu.in, data.opencity.in, News18 | Design: @JediPro") +
   theme_vaw_dark_mobile() +
   theme(panel.grid.major.x = element_blank(),
@@ -483,8 +490,8 @@ data_turnout_incumbency %>%
                                                padding = unit(1, "mm"),
                                                r = unit(x = 2, "mm")))
 
-ggsave(filename = paste0("plot_enop_year_trend", ".png"), 
-       plot = plot_enop_year_trend, device = "png", 
+ggsave(filename = paste0("plot_turnour_delta_incumbency", ".png"), 
+       plot = plot_turnour_delta_incumbency, device = "png", 
        width = 16, height = 20, units = "cm", dpi = 300, limitsize = FALSE)
 
 
