@@ -402,7 +402,7 @@ ggsave(filename = paste0("plot_enop_year_trend", ".png"),
        plot = plot_enop_year_trend, device = "png", 
        width = 16, height = 20, units = "cm", dpi = 300, limitsize = FALSE)
 
-# Relation between turnout and change ----------------------------------
+# Relation between turnout and incumbency ----------------------------------
 data_turnout_incumbency <- data_wb_ac_elections %>% 
   # Remove NOTA
   filter(party != "NOTA") %>% 
@@ -446,19 +446,50 @@ data_turnout_incumbency <- data_wb_ac_elections %>%
   ungroup() %>% 
   # Remove 1st instance of each constituency
   drop_na(incumbency) %>%
-  select(ac_name, assembly_no, year, electors, valid_votes, 
+  select(ac_name, ac_no, assembly_no, year, electors, valid_votes, 
          turnout, cum_mean_turnout, turnout_delta,
          party, vote_share, margin, prev_party, 
-         incumbency, incumbency_degree) 
+         incumbency, incumbency_degree)
 
-t.test(x = data_turnout_incumbency$turnout_delta[data_turnout_incumbency$incumbency],
-       data_turnout_incumbency$turnout_delta[!data_turnout_incumbency$incumbency])
+# Plot: Ridgeplot of turn out vs incumbency ---------------------------------
+plot_turnout_incumbency <- data_turnout_incumbency %>% 
+  ggplot() +
+  # Ridgeplot
+  geom_density_ridges(mapping = aes(x = turnout, y = incumbency_degree, 
+                                    fill = incumbency_degree), 
+                      alpha = 0.8, colour = "grey7", rel_min_height = 0.01,
+                      scale = 1.5, quantiles = 2, quantile_lines = TRUE,
+                      linewidth = 1) +
+  # Scales
+  scale_x_continuous(name = "Turnout", 
+                     labels = scales::label_percent(accuracy = 1), 
+                     expand = expansion(mult = c(0.01, 0.01)),
+                     limits = c(0.3, 0.95)) +
+  scale_y_discrete(name = "Degree of Incumbency (Number of consecutive terms won)", 
+                   breaks = c("0", "1_2", "3_4", "GT5"),
+                   labels = c("0", "1-2", "3-4", "> 5"),
+                   expand = expansion(mult = c(0.01, 0.01))) +
+  scale_fill_manual(name = NULL, guide = NULL, 
+                    breaks = c("0", "1_2", "3_4", "GT5"),
+                    values = c("#046A38", "grey87", "#06038D", "#FF671F"),) +
+  # Labels
+  labs(title = "At a constituency level, instances of a higher turnout tends to point to a win for the incumbent. This effect increases with a higher degree of incumbency",
+       subtitle = "Degree of incumbency represent the number of consecutive times the current incumbent has previously won. 0 means the incumbent did not win the current election, 1 means they won the current and previous election, and so on<br>The curves show distribution of turnout delta for that category",
+       caption = "Data: yashveeeeeeer.github.io/india-geodata, lokdhaba.ashoka.edu.in, data.opencity.in, News18| Data for 1967 elections onwards | Design: @JediPro") +
+  theme_vaw_dark_mobile() +
+  theme(panel.grid.major.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        plot.subtitle = element_textbox_simple(fill = "white", 
+                                               colour = "grey7", 
+                                               padding = unit(1, "mm"),
+                                               r = unit(x = 2, "mm")))
 
+ggsave(filename = paste0("plot_turnout_incumbency", ".png"), 
+       plot = plot_turnout_incumbency, device = "png", 
+       width = 16, height = 20, units = "cm", dpi = 300, limitsize = FALSE)
 
-
-
-# Plot ridgeplot of Turnout Deltas by Degree of Incumbency
-plot_turnour_delta_incumbency <- data_turnout_incumbency %>% 
+# Plot: Ridgeplot of Turnout Deltas by Degree of Incumbency --------------------
+plot_turnout_delta_incumbency <- data_turnout_incumbency %>% 
   ggplot() +
   # Ridgeplot
   geom_density_ridges(mapping = aes(x = turnout_delta, y = incumbency_degree, 
@@ -469,18 +500,60 @@ plot_turnour_delta_incumbency <- data_turnout_incumbency %>%
   # Scales
   scale_x_continuous(name = "Turnout Delta", 
                      labels = scales::label_percent(accuracy = 1), 
-                     expand = expansion(mult = c(0.05, 0.1)),
+                     expand = expansion(mult = c(0.01, 0.01)),
                      limits = c(-0.15, 0.25)) +
   scale_y_discrete(name = "Degree of Incumbency (Number of consecutive terms won)", 
                    breaks = c("0", "1_2", "3_4", "GT5"),
                    labels = c("0", "1-2", "3-4", "> 5"),
-                   expand = expansion(mult = c(0.07, 0.07))) +
+                   expand = expansion(mult = c(0.01, 0.01))) +
   scale_fill_manual(name = NULL, guide = NULL, 
                     breaks = c("0", "1_2", "3_4", "GT5"),
                     values = c("#046A38", "grey87", "#06038D", "#FF671F"),) +
   # Labels
-  labs(title = "At a constituency level, instances of a higher turnout than usual tends to point to a win for the incumbent. This effect increases with a higher degree of incumbency",
-       subtitle = "Turnout delta is the difference of turnout %age in the current instance vs mean turnout in all assembly elections at that constituency so far<br>Degree of incumbency represent the number of consecutive times the current incumbent has previously won. 0 means the incumbent did not win the current election, 1 means they won the current and previous election, and so on<br>The curves show distribution of turnout delta for that category",
+  labs(title = "The positive correlation of turnout vs incumbency holds even after controlling for average turnouts at each constituency",
+       subtitle = "Turnout delta is the difference of turnout %age in the current instance vs mean turnout in all assembly elections at that constituency so far<br>The curves show distribution of turnout delta for that category",
+       caption = "Data: yashveeeeeeer.github.io/india-geodata, lokdhaba.ashoka.edu.in, data.opencity.in, News18| Data for 1967 elections onwards | Design: @JediPro") +
+  theme_vaw_dark_mobile() +
+  theme(panel.grid.major.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        plot.subtitle = element_textbox_simple(fill = "white", 
+                                               colour = "grey7", 
+                                               padding = unit(1, "mm"),
+                                               r = unit(x = 2, "mm")))
+
+ggsave(filename = paste0("plot_turnout_delta_incumbency", ".png"), 
+       plot = plot_turnout_delta_incumbency, device = "png", 
+       width = 16, height = 20, units = "cm", dpi = 300, limitsize = FALSE)
+
+# Plot: Gini equality of constituency elector counts -------------------------
+plot_ac_elector_gini <- data_wb_ac_elections %>% 
+  # Keep distinct values
+  distinct(assembly_no, year, ac_no, electors) %>% 
+  group_by(assembly_no, year) %>% 
+  summarise(n = n(), gini_electors = reldist::gini(x = electors), .groups = "drop") %>% 
+  # plot
+  # plot
+  ggplot() +
+  # trace line
+  geom_line(mapping = aes(x = assembly_no, y = gini_electors), 
+            colour = "lightblue", linewidth = 2) +
+  # Plot point as number of parties
+  geom_point(mapping = aes(x = assembly_no, y = gini_electors),
+             colour = "#06038D", size = 7) +
+  geom_text(mapping = aes(x = assembly_no, y = gini_electors, 
+                          label = scales::percent(x = gini_electors, accuracy = 1)),
+            colour = "grey87", family = "Titillium Web", size = 3, 
+            fontface = "bold") +
+  # Scales
+  scale_x_continuous(name = NULL, breaks = as.numeric(names(vec_assembly_year)), 
+                     labels = vec_assembly_year,
+                     expand = expansion(mult = c(0.05, 0.05))) +
+  scale_y_continuous(name = "Gini Index of Eligible Voter Population", 
+                     labels = scales::label_percent(accuracy = 1),
+                     expand = expansion(mult = c(0.07, 0.07))) +
+  # Labels
+  labs(title = "The inequality of voter population distributions by constituency has decreased significantly in recent years",
+       subtitle = "Lower Gini indices indicate that most constituencies have similar eligible voter populations, ",
        caption = "Data: yashveeeeeeer.github.io/india-geodata, lokdhaba.ashoka.edu.in, data.opencity.in, News18 | Design: @JediPro") +
   theme_vaw_dark_mobile() +
   theme(panel.grid.major.x = element_blank(),
@@ -490,8 +563,41 @@ plot_turnour_delta_incumbency <- data_turnout_incumbency %>%
                                                padding = unit(1, "mm"),
                                                r = unit(x = 2, "mm")))
 
-ggsave(filename = paste0("plot_turnour_delta_incumbency", ".png"), 
-       plot = plot_turnour_delta_incumbency, device = "png", 
+ggsave(filename = paste0("plot_ac_elector_gini", ".png"), 
+       plot = plot_ac_elector_gini, device = "png", 
+       width = 16, height = 20, units = "cm", dpi = 300, limitsize = FALSE)
+
+# Plot: average turnouts at each constituency ------------------------------
+plot_map_ac_mean_turnout <- data_turnout_incumbency %>% 
+  filter(assembly_no == max(assembly_no)) %>% 
+  select(ac_name, ac_no, electors, cum_mean_turnout) %>%
+  # Get shapefiles
+  left_join(y = sf_wb_ac %>% select(ac_no, geometry), by = "ac_no") %>% 
+  # plot
+  ggplot() +
+  # map
+  geom_sf(mapping = aes(geometry = geometry, fill = cum_mean_turnout), colour = "grey7") +
+  # Scales
+  coord_sf() +
+  scale_fill_viridis_b(option = "inferno", direction = -1) +
+  # Labels
+  labs(title = "The inequality of voter population distributions by constituency has decreased significantly in recent years",
+       subtitle = "Lower Gini indices indicate that most constituencies have similar eligible voter populations, ",
+       caption = "Data: yashveeeeeeer.github.io/india-geodata, lokdhaba.ashoka.edu.in, data.opencity.in, News18 | Design: @JediPro") +
+  theme_vaw_dark_mobile() +
+  theme(panel.grid.major = element_blank(),
+        axis.title = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(),
+        legend.position = "inside",
+        legend.position.inside = c(0.3, 0.7),
+        plot.subtitle = element_textbox_simple(fill = "white", 
+                                               colour = "grey7", 
+                                               padding = unit(1, "mm"),
+                                               r = unit(x = 2, "mm")))
+
+ggsave(filename = paste0("plot_map_ac_mean_turnout", ".png"), 
+       plot = plot_map_ac_mean_turnout, device = "png", 
        width = 16, height = 20, units = "cm", dpi = 300, limitsize = FALSE)
 
 
@@ -501,8 +607,20 @@ data_turnout_incumbency %>%
   group_by(turnout_delta_ventile) %>% 
   summarise(n = n(), min_delta = min(turnout_delta), 
             max_delta = max(turnout_delta), n_inc_win = sum(incumbency),
-            r_inc_win = n_inc_win/n) %>% 
-  
+            r_inc_win = n_inc_win/n)
 
+data_turnout_incumbency %>% 
+  group_by(assembly_no) %>% 
+  mutate(quant = ntile(electors, 100)) %>% 
+  ungroup() %>% 
+  ggplot() +
+  geom_point(aes(x = quant, y = turnout))
+  group_by(quant) %>% 
+  summarise(n = n(), n_inc_win = sum(incumbency),
+            r_inc_win = n_inc_win/n)
+
+data_turnout_incumbency %>% 
+  group_by(assembly_no) %>% 
+  mutate(quant = ntile(x = electors, n = 4)) %>% 
   geom_density(mapping = aes(x = turnout_delta, group = incumbency_degree, colour = incumbency_degree))
   facet_wrap(facets = vars(n_win_incumbent))
