@@ -5,6 +5,7 @@ library(tidyverse)
 library(sf)
 library(ggfittext)
 library(ggridges)
+library(ggmapinset)
 
 # Set working directory ------------------------------
 setwd("C:\\Stuff\\Datasets\\GitHub\\elections_india\\")
@@ -33,7 +34,8 @@ sf_wb_ac <- sf_wb_ac_raw %>%
   arrange(AC_NO) %>% 
   rename_with(.fn = snakecase::to_snake_case, .cols = everything()) %>% 
   # Calculate area
-  mutate(area = st_area(x = geometry) %>% as.numeric() %>% `/`(10^6) %>% round(digits = 2))
+  mutate(area = st_area(x = geometry) %>% as.numeric() %>%
+           `/`(10^6) %>% round(digits = 2))
 
 # Results
 data_wb_ac_elections <- table_ac_elections %>% 
@@ -269,6 +271,12 @@ data_turnout_incumbency <- data_wb_ac_elections %>%
 
 # Define look up vector for mapping years to assembly number
 vec_assembly_year <- data_turnout_incumbency %>% distinct(assembly_no, year) %>% deframe()
+
+# Define inset layer for map plots --------------------
+sf_inset_rect <- shape_rectangle(centre = sf_wb_ac %>% 
+                                   filter(ac_name == "CHOWRANGEE") %>% 
+                                   st_centroid(), 
+                                 hheight = 0.2, hwidth = 0.15)
 
 # Plot: Election wise eligible voters and votes polled -----------------------
 plot_election_turnout_trend <- data_turnout_incumbency %>% 
@@ -584,29 +592,38 @@ ggsave(filename = paste0("plot_ac_elector_gini", ".png"),
        width = 16, height = 20, units = "cm", dpi = 300, limitsize = FALSE)
 
 # Plot: average turnouts at each constituency ------------------------------
+
 plot_map_ac_mean_turnout <- data_turnout_incumbency %>% 
   filter(assembly_no == max(assembly_no)) %>% 
-  select(ac_name, ac_no, electors, cum_mean_turnout) %>%
+  select(ac_name, ac_no, electors, turnout) %>% 
+  # Calculate delta from median
+  mutate(turnout_pentile = ntile(x = turnout, n = 5),
+         # Map colours
+         turnout_fill = c("#D7191C", "#FDAE61", "#FFFFBF", 
+                          "#ABD9E9", "#2C7BB6")[turnout_pentile]) %>% 
   # Get shapefiles
   left_join(y = sf_wb_ac %>% select(ac_no, geometry), by = "ac_no") %>% 
+  # Calculate 
   # plot
   ggplot() +
   # map
-  geom_sf(mapping = aes(geometry = geometry, fill = cum_mean_turnout), colour = "grey7") +
+  geom_sf_inset(mapping = aes(geometry = geometry, fill = turnout_fill), colour = "grey7") +
+  # Add inset
+  geom_inset_frame(colour = "white", linewidth = 0.7) +
   # Scales
-  coord_sf() +
-  scale_fill_viridis_b(option = "inferno", direction = -1) +
+  coord_sf_inset(inset = configure_inset(shape = sf_inset_rect, scale = 3,
+                                         translation = c(1.2, 1.7), 
+                                         crs_working = st_crs(sf_wb_ac))) +
+  scale_fill_identity() +
   # Labels
-  labs(title = "The inequality of voter population distributions by constituency has decreased significantly in recent years",
-       subtitle = "Lower Gini indices indicate that most constituencies have similar eligible voter populations, ",
+  labs(title = "Areas with low turnouts are clustered together geographically, with urban areas historically seeing lower turnouts",
+       subtitle = "Constituencies are coloured <b style='color:#D7191C'>Red</b> to <b style='color:#2C7BB6'>Blue</b> in increasing order of their turnout rates",
        caption = "Data: yashveeeeeeer.github.io/india-geodata, lokdhaba.ashoka.edu.in, data.opencity.in, News18 | Design: @JediPro") +
   theme_vaw_dark_mobile() +
   theme(panel.grid.major = element_blank(),
         axis.title = element_blank(), 
         axis.text = element_blank(), 
         axis.ticks = element_blank(),
-        legend.position = "inside",
-        legend.position.inside = c(0.3, 0.7),
         plot.subtitle = element_textbox_simple(fill = "white", 
                                                colour = "grey7", 
                                                padding = unit(1, "mm"),
@@ -614,7 +631,7 @@ plot_map_ac_mean_turnout <- data_turnout_incumbency %>%
 
 ggsave(filename = paste0("plot_map_ac_mean_turnout", ".png"), 
        plot = plot_map_ac_mean_turnout, device = "png", 
-       width = 16, height = 20, units = "cm", dpi = 300, limitsize = FALSE)
+       width = 12, height = 22, units = "cm", dpi = 300, limitsize = FALSE)
 
 
 data_turnout_incumbency %>% 
