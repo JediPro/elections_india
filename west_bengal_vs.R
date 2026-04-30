@@ -14,8 +14,8 @@ source(file = "C:\\Stuff\\Datasets\\vaw_themes.R")
 
 # Load data ------------------------------------
 # Fetch Assemble constituency shapefile for WB
-sf_wb_ac_raw <- st_read(dsn = "state_vs_ac/S25_AC.shp") %>% 
-  st_set_crs(value = 4326)
+sf_wb_ac_raw <- st_read(dsn = "India_AC.shp") %>% 
+  filter(ST_NAME == "WEST BENGAL")
 
 # Fetch data of past elections from Lok Dhaba https://lokdhaba.ashoka.edu.in/
 table_ac_elections <- read_csv("West_Bengal_AE.csv")
@@ -31,7 +31,9 @@ table_ac_turnout <- readxl::read_xlsx("wb_ac_turnout_2026.xlsx")
 sf_wb_ac <- sf_wb_ac_raw %>% 
   select(ST_CODE, AC_NO, PC_NO, AC_NAME) %>% 
   arrange(AC_NO) %>% 
-  rename_with(.fn = snakecase::to_snake_case, .cols = everything())
+  rename_with(.fn = snakecase::to_snake_case, .cols = everything()) %>% 
+  # Calculate area
+  mutate(area = st_area(x = geometry) %>% as.numeric() %>% `/`(10^6) %>% round(digits = 2))
 
 # Results
 data_wb_ac_elections <- table_ac_elections %>% 
