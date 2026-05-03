@@ -592,12 +592,16 @@ ggsave(filename = paste0("plot_ac_elector_gini", ".png"),
        width = 16, height = 20, units = "cm", dpi = 300, limitsize = FALSE)
 
 # Plot: average turnouts at each constituency ------------------------------
-
 plot_map_ac_mean_turnout <- data_turnout_incumbency %>% 
-  filter(assembly_no == max(assembly_no)) %>% 
-  select(ac_name, ac_no, electors, turnout) %>% 
+  # Calculate mean turnout for past 4 elections
+  filter(assembly_no >= 15) %>% 
+  group_by(ac_name, ac_no) %>% 
+  arrange(ac_name, ac_no, assembly_no) %>% 
+  mutate()
+  summarise(across(.cols = c(electors, valid_votes), .fns = sum), cnt = n(), .groups = "drop")
+  select(assembly_no, ac_name, ac_no, electors, tu) %>% 
   # Calculate delta from median
-  mutate(turnout_pentile = ntile(x = turnout, n = 5),
+  mutate(turnout_pentile = ntile(x = cum_mean_turnout, n = 5),
          # Map colours
          turnout_fill = c("#D7191C", "#FDAE61", "#FFFFBF", 
                           "#ABD9E9", "#2C7BB6")[turnout_pentile]) %>% 
@@ -616,8 +620,8 @@ plot_map_ac_mean_turnout <- data_turnout_incumbency %>%
                                          crs_working = st_crs(sf_wb_ac))) +
   scale_fill_identity() +
   # Labels
-  labs(title = "Areas with low turnouts are clustered together geographically, with urban areas historically seeing lower turnouts",
-       subtitle = "Constituencies are coloured <b style='color:#D7191C'>Red</b> to <b style='color:#2C7BB6'>Blue</b> in increasing order of their turnout rates",
+  labs(title = "Areas with low turnouts are clustered together geographically",
+       subtitle = "Constituencies are coloured <b style='color:#D7191C'>Red</b> to <b style='color:#2C7BB6'>Blue</b> in increasing order of their mean turnout rates (weighted verage of turnout for all elections)",
        caption = "Data: yashveeeeeeer.github.io/india-geodata, lokdhaba.ashoka.edu.in, data.opencity.in, News18 | Design: @JediPro") +
   theme_vaw_dark_mobile() +
   theme(panel.grid.major = element_blank(),
@@ -631,29 +635,6 @@ plot_map_ac_mean_turnout <- data_turnout_incumbency %>%
 
 ggsave(filename = paste0("plot_map_ac_mean_turnout", ".png"), 
        plot = plot_map_ac_mean_turnout, device = "png", 
-       width = 12, height = 22, units = "cm", dpi = 300, limitsize = FALSE)
+       width = 12, height = 20, units = "cm", dpi = 300, limitsize = FALSE)
 
-
-data_turnout_incumbency %>% 
-  # Divide into 20 equal ventiles
-  mutate(turnout_delta_ventile = ntile(x = turnout_delta, n = 20)) %>% 
-  group_by(turnout_delta_ventile) %>% 
-  summarise(n = n(), min_delta = min(turnout_delta), 
-            max_delta = max(turnout_delta), n_inc_win = sum(incumbency),
-            r_inc_win = n_inc_win/n)
-
-data_turnout_incumbency %>% 
-  group_by(assembly_no) %>% 
-  mutate(quant = ntile(electors, 100)) %>% 
-  ungroup() %>% 
-  ggplot() +
-  geom_point(aes(x = quant, y = turnout))
-  group_by(quant) %>% 
-  summarise(n = n(), n_inc_win = sum(incumbency),
-            r_inc_win = n_inc_win/n)
-
-data_turnout_incumbency %>% 
-  group_by(assembly_no) %>% 
-  mutate(quant = ntile(x = electors, n = 4)) %>% 
-  geom_density(mapping = aes(x = turnout_delta, group = incumbency_degree, colour = incumbency_degree))
-  facet_wrap(facets = vars(n_win_incumbent))
+# Plot:
